@@ -110,23 +110,23 @@ class OAuthConsumer(object):
             self.key = key
             self.secret = secret
     
-    def register_client(self, client_name, client_type):
+    def register_client(self, client_name, client_type, server):
         """ This will register a client using the spec defined in
             http://openid.net/specs/openid-connect-registration-1_0.html
         """
-        data = "client_name=%{name}s&type=client_associate&application_type=%{type}s" % {
-                "name":client_name,
-                "type":client_type
-        }
+        data = "client_name={name}&type=client_associate&application_type={type}".format(
+                name=client_name,
+                type=client_type
+        )
         
-        request = urllib.request.urlopen(self.server, data=data.encode())
-        registration = request.read(2048)
+        request = urllib.request.urlopen(server, data=data.encode())
+        registration = request.read(2048).decode("utf-8")
         
         # okay we're going to assume json.
-        registration = decode_registration(registration)
+        registration = self.decode_registration(registration)
         self.expirey = registration[2]
 
-        return self.expirey[:-1] 
+        return registration[:-1]
             
     
     def decode_registration(self, registration):
@@ -143,7 +143,7 @@ class OAuthConsumer(object):
                     expirey = 0
             else:
                 expirey = 0
-            return tuple(registration["client_id"], registration["client_secret"], expirey)
+            return (registration["client_id"], registration["client_secret"], expirey)
         
         except ValueError:
             raise OAuthError("Problem decoding the registration, please check it's compatable")
