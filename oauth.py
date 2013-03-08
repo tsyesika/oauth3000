@@ -30,6 +30,7 @@ import urllib.parse
 import hmac
 import binascii
 import hashlib
+import json
 
 from base64 import b64encode
 
@@ -81,11 +82,72 @@ class OAuthConsumer(object):
     key = None
     secret = None
 
-    def __init__(self, key, secret):
-        self.key = key
-        self.secret = secret
+    client_name = None
+    client_type = "web" # defaults to web.
+    expirey = 0 # 0 is doesn't expire.
 
+    def __init__(self, key="", secret="", client_name="", client_type="web", server=""):
+        """
+        This sets up the consumer, this will register the client or hold the values for the key and secret.
+        
+        key -- the token
+        secret -- the token secret
 
+        client_name -- name of the client
+        cleint_type -- type of the client (default: web)
+        server -- server AND location of dynamic registration endpoint
+                  e.g. http://example.server.tdl/api/client/register
+        """
+
+        if not (key or secret) and (client_name and client_type):
+            # okay we're registering a new client
+            self.key, self.secret = self.register_client(client_name, client_type, server)
+        elif not (key or secret):
+            # okay nothing has been specified, raise an exception
+            raise OAuthError('Need to specify a value for key and secret or client_name, client_type and server')
+        else:
+            # we have a key and secret already, just need to set them. 
+            self.key = key
+            self.secret = secret
+    
+    def register_client(self, client_name, client_type):
+        """ This will register a client using the spec defined in
+            http://openid.net/specs/openid-connect-registration-1_0.html
+        """
+        data = "client_name=%{name}s&type=client_associate&application_type=%{type}s" % {
+                "name":client_name,
+                "type":client_type
+        }
+        
+        request = urllib.request.urlopen(self.server, data=data.encode())
+        registration = request.read(2048)
+        
+        # okay we're going to assume json.
+        registration = decode_registration(registration)
+        self.expirey = registration[2]
+
+        return self.expirey[:-1] 
+            
+    
+    def decode_registration(self, registration):
+        """ This will decode the json registration, the assumption is that it's in
+        {"client_id":"","client_secret":"","expires_at":0}
+        that format.
+        """
+        try:
+            registration = json.loads(registration)
+            if "expires_at" in registration:
+                try:
+                    expirey = int(registration["expires_at"])
+                except ValueError:
+                    expirey = 0
+            else:
+                expirey = 0
+            return tuple(registration["client_id"], registration["client_secret"], expirey)
+        
+        except ValueError:
+            raise OAuthError("Problem decoding the registration, please check it's compatable")
+            
 class OAuthToken(object):
     """OAuthToken is a data type that represents an End User via either an access
     or request token.
