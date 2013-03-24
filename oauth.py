@@ -83,10 +83,10 @@ class OAuthConsumer(object):
     secret = None
 
     client_name = None
-    client_type = "web" # defaults to web.
+    client_type = "native" # defaults to native.
     expirey = 0 # 0 is doesn't expire.
 
-    def __init__(self, key="", secret="", client_name="", client_type="web", server=""):
+    def __init__(self, key="", secret="", client_name="", client_type="native", server=""):
         """
         This sets up the consumer, this will register the client or hold the values for the key and secret.
         
@@ -114,7 +114,7 @@ class OAuthConsumer(object):
         """ This will register a client using the spec defined in
             http://openid.net/specs/openid-connect-registration-1_0.html
         """
-        data = "client_name={name}&type=client_associate&application_type={type}".format(
+        data = "client_name={name}&application_name={name}&type=client_associate&application_type={type}".format(
                 name=client_name,
                 type=client_type
         )
